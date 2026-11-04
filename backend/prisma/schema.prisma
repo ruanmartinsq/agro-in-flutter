@@ -1,0 +1,205 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Usuario {
+  id                 Int               @id @default(autoincrement())
+  nome               String
+  email              String            @unique
+  senha_hash         String
+  criado_em          DateTime          @default(now())
+  analises_foliares  AnaliseFoliar[]
+  casos_foliares     CasoFoliar[]
+  propriedades       Propriedade[]
+  tokens_redefinicao SenhaResetToken[]
+  vistorias_foliares VistoriaArea[]
+}
+
+model SenhaResetToken {
+  id         Int       @id @default(autoincrement())
+  usuario_id Int
+  token_hash String    @unique
+  expira_em  DateTime
+  usado_em   DateTime?
+  criado_em  DateTime  @default(now())
+  usuario    Usuario   @relation(fields: [usuario_id], references: [id], onDelete: Cascade)
+
+  @@index([usuario_id])
+  @@index([expira_em])
+}
+
+model Propriedade {
+  id                 Int             @id @default(autoincrement())
+  usuario_id         Int
+  nome               String
+  area_total         Float?
+  tipo_producao      String?
+  localizacao        String?
+  criado_em          DateTime        @default(now())
+  analises_foliares  AnaliseFoliar[]
+  casos_foliares     CasoFoliar[]
+  estoque            Estoque[]
+  financeiro         Financeiro[]
+  metas              Meta[]
+  producoes          Producao[]
+  usuario            Usuario         @relation(fields: [usuario_id], references: [id])
+  vistorias_foliares VistoriaArea[]
+}
+
+model AnaliseFoliar {
+  id                     Int            @id @default(autoincrement())
+  usuario_id             Int
+  propriedade_id         Int?
+  cultura_informada      String?
+  cultura_detectada      String?
+  cultura_cientifica     String?
+  cultura_confianca      Float?
+  status_geral           String
+  confianca              Float?
+  origem_diagnostico     String
+  referencia_provedor    String?
+  versao_modelo          String?
+  qualidade_foto         String
+  is_planta              Float?
+  hipoteses              Json
+  recomendacoes          Json
+  perguntas_confirmacao  Json
+  metricas_visuais       Json
+  avisos                 Json
+  latitude               Float?
+  longitude              Float?
+  observacoes            String?
+  feedback_util          Boolean?
+  diagnostico_confirmado String?
+  imagem_preview         Bytes
+  imagem_mime            String         @default("image/jpeg")
+  criado_em              DateTime       @default(now())
+  atualizado_em          DateTime       @updatedAt
+  caso_id                Int?
+  ponto_vistoria_id      Int?
+  etapa_acompanhamento   Int            @default(0)
+  comparacao_anterior    Json?
+  caso                   CasoFoliar?    @relation(fields: [caso_id], references: [id])
+  ponto_vistoria         PontoVistoria? @relation(fields: [ponto_vistoria_id], references: [id])
+  propriedade            Propriedade?   @relation(fields: [propriedade_id], references: [id])
+  usuario                Usuario        @relation(fields: [usuario_id], references: [id], onDelete: Cascade)
+
+  @@index([usuario_id, criado_em])
+  @@index([propriedade_id])
+  @@index([caso_id, criado_em])
+  @@index([ponto_vistoria_id, criado_em])
+}
+
+model CasoFoliar {
+  id                 Int             @id @default(autoincrement())
+  usuario_id         Int
+  propriedade_id     Int?
+  titulo             String
+  cultura            String?
+  tratamento         String?
+  status             String          @default("em_quarentena")
+  proxima_revisao_em DateTime?
+  encerrado_em       DateTime?
+  criado_em          DateTime        @default(now())
+  atualizado_em      DateTime        @updatedAt
+  analises           AnaliseFoliar[]
+  propriedade        Propriedade?    @relation(fields: [propriedade_id], references: [id])
+  usuario            Usuario         @relation(fields: [usuario_id], references: [id], onDelete: Cascade)
+
+  @@index([usuario_id, status, criado_em])
+  @@index([propriedade_id])
+}
+
+model VistoriaArea {
+  id             Int             @id @default(autoincrement())
+  usuario_id     Int
+  propriedade_id Int?
+  nome           String
+  cultura        String?
+  objetivo       String?
+  status         String          @default("em_andamento")
+  concluido_em   DateTime?
+  criado_em      DateTime        @default(now())
+  atualizado_em  DateTime        @updatedAt
+  pontos         PontoVistoria[]
+  propriedade    Propriedade?    @relation(fields: [propriedade_id], references: [id])
+  usuario        Usuario         @relation(fields: [usuario_id], references: [id], onDelete: Cascade)
+
+  @@index([usuario_id, status, criado_em])
+  @@index([propriedade_id])
+}
+
+model PontoVistoria {
+  id              Int             @id @default(autoincrement())
+  vistoria_id     Int
+  nome            String
+  setor           String?
+  ordem           Int
+  latitude        Float?
+  longitude       Float?
+  precisao_metros Float?
+  criado_em       DateTime        @default(now())
+  atualizado_em   DateTime        @updatedAt
+  analises        AnaliseFoliar[]
+  vistoria        VistoriaArea    @relation(fields: [vistoria_id], references: [id], onDelete: Cascade)
+
+  @@index([vistoria_id, ordem])
+}
+
+model Financeiro {
+  id             Int            @id @default(autoincrement())
+  propriedade_id Int
+  tipo           TipoFinanceiro
+  categoria      String?
+  descricao      String?
+  valor          Float
+  data           DateTime       @default(now())
+  propriedade    Propriedade    @relation(fields: [propriedade_id], references: [id])
+}
+
+model Producao {
+  id             Int         @id @default(autoincrement())
+  propriedade_id Int
+  tipo           String
+  area_utilizada Float?
+  quantidade     Float?
+  data_inicio    DateTime?
+  data_fim       DateTime?
+  status         String?
+  propriedade    Propriedade @relation(fields: [propriedade_id], references: [id])
+}
+
+model Estoque {
+  id                Int         @id @default(autoincrement())
+  propriedade_id    Int
+  item              String
+  categoria         String?
+  quantidade        Float
+  unidade           String?
+  quantidade_minima Float?
+  propriedade       Propriedade @relation(fields: [propriedade_id], references: [id])
+}
+
+model Meta {
+  id             Int         @id @default(autoincrement())
+  propriedade_id Int
+  descricao      String
+  categoria      String?     @default("geral")
+  valor_alvo     Float?
+  valor_atual    Float?      @default(0)
+  unidade        String?
+  responsavel    String?
+  prazo          DateTime?
+  status         String?     @default("pendente")
+  propriedade    Propriedade @relation(fields: [propriedade_id], references: [id])
+}
+
+enum TipoFinanceiro {
+  entrada
+  saida
+}
